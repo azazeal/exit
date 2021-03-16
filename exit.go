@@ -6,28 +6,44 @@ import (
 	"os"
 )
 
-// Error wraps the set of exit errors.
-type Error interface {
-	error
-
-	// ExitCode reports the exit code the error denotes.
-	ExitCode() int
-}
-
 var terminate = os.Exit
 
-// Code provides a built-in implementation of Error.
-type Code int
+// Wrap wraps the given error with the given exit code.
+func Wrap(code int, err error) error {
+	return &wrapper{
+		error: err,
+		code:  code,
+	}
+}
 
-// Error implements error for Code.
-func (c Code) Error() string { return fmt.Sprintf("exit.Code(%d)", c) }
+// Wrapf behaves like fmt.Errorf while at the same time wrapping the returned
+// error with the given exit code.
+func Wrapf(code int, format string, a ...interface{}) error {
+	return Wrap(code, fmt.Errorf(format, a...))
+}
 
-// ExitCode implements Error for code.
-func (c Code) ExitCode() int { return int(c) }
+type wrapper struct {
+	error
+	code int
+}
 
-var _ Error = Code(3) // compile time check that code implements Error
+func (w *wrapper) Unwrap() error {
+	return w.error
+}
 
-// With calls os.Exit with an appropriate for the given error exit code.
+// Is reports whether the given error carries an exit code.
+func Is(err error) (has bool) {
+	_, has = err.(*wrapper)
+	return
+}
+
+// HasCode reports whether the given error carries the given exit code.
+func HasCode(err error, code int) bool {
+	e, ok := err.(*wrapper)
+	return ok && e.code == code
+}
+
+// With calls os.Exit with an appropriate exit code for the given error.
 //
 // If the given error is nil, os.Exit will be called with 0.
 //
@@ -40,10 +56,10 @@ func With(err error) {
 	var code int
 
 	if err != nil {
-		if ec, ok := err.(Error); !ok {
+		if ec, ok := err.(*wrapper); !ok {
 			code = 1
 		} else {
-			code = ec.ExitCode()
+			code = ec.code
 		}
 	}
 

@@ -2,26 +2,23 @@ package exit
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"strconv"
 	"testing"
-	"testing/quick"
 )
 
-var cases = []struct {
-	err error
-	exp int
-}{
-	0: {nil, 0},
-	1: {io.EOF, 1},
-	2: {errors.New("error"), 1},
-	3: {Code(0), 0},
-	4: {Code(1), 1},
-	5: {Code(-1), -1},
-}
+func TestWith(t *testing.T) {
+	cases := []struct {
+		err error
+		exp int
+	}{
+		0: {nil, 0},
+		1: {io.EOF, 1},
+		2: {errors.New("error"), 1},
+		3: {Wrap(2, io.EOF), 2},
+		4: {Wrapf(4, "failed doing something: %w", io.EOF), 4},
+	}
 
-func Test(t *testing.T) {
 	for caseIndex := range cases {
 		kase := cases[caseIndex]
 
@@ -47,14 +44,58 @@ func capture(into *int) func() {
 	return func() { terminate = current }
 }
 
-func TestCodeError(t *testing.T) {
-	fn := func(v Code) bool {
-		exp := fmt.Sprintf("exit.Code(%d)", v)
+func TestUnwrap(t *testing.T) {
+	exp := errors.New("some error")
+	err := Wrap(12, exp)
 
-		return v.Error() == exp
+	if !errors.Is(err, exp) {
+		t.Fatal("is reported false")
+	}
+}
+
+func TestIs(t *testing.T) {
+	cases := []struct {
+		err error
+		exp bool
+	}{
+		{nil, false},
+		{io.EOF, false},
+		{Wrap(2, io.EOF), true},
 	}
 
-	if err := quick.Check(fn, nil); err != nil {
-		t.Fatal(err)
+	for caseIndex := range cases {
+		kase := cases[caseIndex]
+
+		t.Run(strconv.Itoa(caseIndex), func(t *testing.T) {
+			if got := Is(kase.err); got != kase.exp {
+				t.Errorf("got %t, expected %t", got, kase.exp)
+			}
+		})
+	}
+}
+
+func TestHasCode(t *testing.T) {
+	const code = 5
+
+	cases := []struct {
+		err error
+		exp bool
+	}{
+		{nil, false},
+		{io.EOF, false},
+		{Wrap(code, io.EOF), true},
+		{Wrapf(code, "failed with: %w", io.EOF), true},
+		{Wrap(code-1, io.EOF), false},
+		{Wrapf(code+1, "failed with: %w", io.EOF), false},
+	}
+
+	for caseIndex := range cases {
+		kase := cases[caseIndex]
+
+		t.Run(strconv.Itoa(caseIndex), func(t *testing.T) {
+			if got := HasCode(kase.err, code); got != kase.exp {
+				t.Errorf("got %t, expected %t", got, kase.exp)
+			}
+		})
 	}
 }
