@@ -2,64 +2,91 @@
 package exit
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
 
 var terminate = os.Exit
 
-// Wrap wraps the given error with the given exit code.
+// Wrap wraps the err with code.
 func Wrap(code int, err error) error {
 	return &wrapper{
 		error: err,
-		code:  code,
+		int:   code,
 	}
 }
 
 // Wrapf behaves like fmt.Errorf while at the same time wrapping the returned
-// error with the given exit code.
+// error with code.
 func Wrapf(code int, format string, a ...interface{}) error {
 	return Wrap(code, fmt.Errorf(format, a...))
 }
 
 type wrapper struct {
 	error
-	code int
+	int
 }
 
 func (w *wrapper) Unwrap() error {
 	return w.error
 }
 
-// Is reports whether the given error carries an exit code.
-func Is(err error) (has bool) {
-	_, has = err.(*wrapper)
+// Is reports whether any error in err's chain is an exit one.
+func Is(err error) (is bool) {
+	for {
+		if _, is = err.(*wrapper); is {
+			break
+		}
+
+		if err = errors.Unwrap(err); err == nil {
+			break
+		}
+	}
+
 	return
 }
 
-// HasCode reports whether the given error carries the given exit code.
-func HasCode(err error, code int) bool {
-	e, ok := err.(*wrapper)
-	return ok && e.code == code
+// Code returns the first exit code err's chain carries.
+//
+// In case err's chain does not carry an exit code, carries will be unset.
+func Code(err error) (code int, carries bool) {
+	for {
+		if w, is := err.(*wrapper); is {
+			code = w.int
+			carries = true
+
+			break
+		}
+
+		if err = errors.Unwrap(err); err == nil {
+			break
+		}
+	}
+
+	return
 }
 
-// With calls os.Exit with an appropriate exit code for the given error.
+// Carries reports whether the first exit error in err's chain carries code.
+func Carries(err error, code int) bool {
+	c, has := Code(err)
+	return has && code == c
+}
+
+// With calls os.Exit with an exit code appropriate for err.
 //
-// If the given error is nil, os.Exit will be called with 0.
+// Should err be nil, os.Exit will be called with 0.
 //
-// Alternatively, and should the given error not implement the Error interface,
-// os.Exit will be called with 1.
+// Alternatively, should err or its chain not carry an exit code, os.Exit will
+// be called with 1.
 //
-// In any other case, os.Exit will be called with the result of the given
-// error's ExitCode function.
+// In all other cases, os.Exit will be called with the code err carries.
 func With(err error) {
 	var code int
-
 	if err != nil {
-		if ec, ok := err.(*wrapper); !ok {
+		var carries bool
+		if code, carries = Code(err); !carries {
 			code = 1
-		} else {
-			code = ec.code
 		}
 	}
 

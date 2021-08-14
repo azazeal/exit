@@ -1,3 +1,7 @@
+[![Build Status](https://github.com/azazeal/exit/actions/workflows/build.yml/badge.svg)](https://github.com/azazeal/exit/actions/workflows/build.yml)
+[![Coverage Report](https://coveralls.io/repos/github/azazeal/exit/badge.svg?branch=master)](https://coveralls.io/github/azazeal/exit?branch=master)
+[![Go Reference](https://pkg.go.dev/badge/github.com/azazeal/exit.svg)](https://pkg.go.dev/github.com/azazeal/exit)
+
 # exit
 
 Package exit implements an error-based alternative to os.Exit.
@@ -24,14 +28,16 @@ const (
 )
 
 func main() {
-	err := run()
-	if err != nil {
-		log.Println(err)
-	}
-	exit.With(err)
+	exit.With(run())
 }
 
 func run() (err error) {
+	defer func() {
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
 	var conn net.Conn
 	if conn, err = dial(); err != nil {
 		return
