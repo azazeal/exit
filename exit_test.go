@@ -5,6 +5,8 @@ import (
 	"io"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestWith(t *testing.T) {
@@ -27,9 +29,7 @@ func TestWith(t *testing.T) {
 			defer capture(&got)()
 
 			With(kase.err)
-			if got != kase.exp {
-				t.Errorf("got %d, expected %d", got, kase.exp)
-			}
+			assert.Equal(t, kase.exp, got)
 		})
 	}
 }
@@ -46,11 +46,8 @@ func capture(into *int) func() {
 
 func TestUnwrap(t *testing.T) {
 	exp := errors.New("some error")
-	err := Wrap(12, exp)
 
-	if !errors.Is(err, exp) {
-		t.Fatal("is reported false")
-	}
+	assert.Same(t, exp, errors.Unwrap(Wrap(12, exp)))
 }
 
 func TestIs(t *testing.T) {
@@ -61,20 +58,19 @@ func TestIs(t *testing.T) {
 		{nil, false},
 		{io.EOF, false},
 		{Wrap(2, io.EOF), true},
+		{Wrap(3, Wrap(1, io.ErrUnexpectedEOF)), true},
 	}
 
 	for caseIndex := range cases {
 		kase := cases[caseIndex]
 
 		t.Run(strconv.Itoa(caseIndex), func(t *testing.T) {
-			if got := Is(kase.err); got != kase.exp {
-				t.Errorf("got %t, expected %t", got, kase.exp)
-			}
+			assert.Equal(t, kase.exp, Is(kase.err))
 		})
 	}
 }
 
-func TestHasCode(t *testing.T) {
+func TestCarries(t *testing.T) {
 	const code = 5
 
 	cases := []struct {
@@ -93,9 +89,7 @@ func TestHasCode(t *testing.T) {
 		kase := cases[caseIndex]
 
 		t.Run(strconv.Itoa(caseIndex), func(t *testing.T) {
-			if got := HasCode(kase.err, code); got != kase.exp {
-				t.Errorf("got %t, expected %t", got, kase.exp)
-			}
+			assert.Equal(t, kase.exp, Carries(kase.err, code))
 		})
 	}
 }
