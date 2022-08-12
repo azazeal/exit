@@ -14,4 +14,4 @@ on:
 jobs:
   build:
     name: Build
-    uses: azazeal/workflows/.github/workflows/golib.yml@master
+    uses: azazeal/workflows/.github/workflows/golib.yml@v1.0.0
