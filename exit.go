@@ -33,35 +33,18 @@ func (w *wrapper) Unwrap() error {
 }
 
 // Is reports whether any error in err's chain is an exit one.
-func Is(err error) (is bool) {
-	for {
-		if _, is = err.(*wrapper); is {
-			break
-		}
-
-		if err = errors.Unwrap(err); err == nil {
-			break
-		}
-	}
-
-	return
+func Is(err error) bool {
+	var w *wrapper
+	return errors.As(err, &w)
 }
 
 // Code returns the first exit code err's chain carries.
 //
 // In case err's chain does not carry an exit code, carries will be unset.
 func Code(err error) (code int, carries bool) {
-	for {
-		if w, is := err.(*wrapper); is {
-			code = w.int
-			carries = true
-
-			break
-		}
-
-		if err = errors.Unwrap(err); err == nil {
-			break
-		}
+	var w *wrapper
+	if carries = errors.As(err, &w); carries {
+		code = w.int
 	}
 
 	return
