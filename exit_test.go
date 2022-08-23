@@ -93,3 +93,7 @@ func TestCarries(t *testing.T) {
 		})
 	}
 }
+
+func TestFail(t *testing.T) {
+	assert.False(t, true)
+}
