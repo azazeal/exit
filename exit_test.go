@@ -3,10 +3,9 @@ package exit
 import (
 	"errors"
 	"io"
+	"reflect"
 	"strconv"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestWith(t *testing.T) {
@@ -29,7 +28,9 @@ func TestWith(t *testing.T) {
 			defer capture(&got)()
 
 			With(kase.err)
-			assert.Equal(t, kase.exp, got)
+			if kase.exp != got {
+				t.Errorf("\nexp: %q\ngot: %q", kase.exp, got)
+			}
 		})
 	}
 }
@@ -46,8 +47,14 @@ func capture(into *int) func() {
 
 func TestUnwrap(t *testing.T) {
 	exp := errors.New("some error")
+	p1 := reflect.ValueOf(exp).Pointer()
 
-	assert.Same(t, exp, errors.Unwrap(Wrap(12, exp)))
+	got := errors.Unwrap(Wrap(12, exp))
+	p2 := reflect.ValueOf(got).Pointer()
+
+	if p1 != p2 {
+		t.Fatalf("\nexp: %p %#v\ngot: %p %#v", exp, exp, got, got)
+	}
 }
 
 func TestIs(t *testing.T) {
@@ -55,17 +62,19 @@ func TestIs(t *testing.T) {
 		err error
 		exp bool
 	}{
-		{nil, false},
-		{io.EOF, false},
-		{Wrap(2, io.EOF), true},
-		{Wrap(3, Wrap(1, io.ErrUnexpectedEOF)), true},
+		0: {nil, false},
+		1: {io.EOF, false},
+		2: {Wrap(2, io.EOF), true},
+		3: {Wrap(3, Wrap(1, io.ErrUnexpectedEOF)), true},
 	}
 
 	for caseIndex := range cases {
 		kase := cases[caseIndex]
 
 		t.Run(strconv.Itoa(caseIndex), func(t *testing.T) {
-			assert.Equal(t, kase.exp, Is(kase.err))
+			if got := Is(kase.err); kase.exp != got {
+				t.Errorf("\nexp: %t\ngot: %t", kase.exp, got)
+			}
 		})
 	}
 }
@@ -89,7 +98,9 @@ func TestCarries(t *testing.T) {
 		kase := cases[caseIndex]
 
 		t.Run(strconv.Itoa(caseIndex), func(t *testing.T) {
-			assert.Equal(t, kase.exp, Carries(kase.err, code))
+			if got := Carries(kase.err, code); kase.exp != got {
+				t.Errorf("\nexp: %t\ngot: %t", kase.exp, got)
+			}
 		})
 	}
 }
